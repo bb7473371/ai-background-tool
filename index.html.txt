@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Background Changer - Remove & Replace Background Instantly</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="logo">
+                <span class="logo-icon">🎨</span>
+                <span class="logo-text">AI Background Studio</span>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#tools">Tools</a></li>
+                <li><a href="#pricing">Pricing</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+            <button class="btn-primary">Sign In</button>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="container">
+            <h1 class="hero-title">
+                Transform Your Photos with <span class="gradient-text">AI Magic</span>
+            </h1>
+            <p class="hero-subtitle">
+                Remove background in 1 click • Add stunning backgrounds • Professional results instantly
+            </p>
+            <div class="hero-buttons">
+                <button class="btn-large btn-primary" onclick="scrollToTool()">Try It Free →</button>
+                <button class="btn-large btn-outline">Watch Demo</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Tool Section -->
+    <section class="tool-section" id="tools">
+        <div class="container">
+            <h2 class="section-title">AI Background Changer</h2>
+            <p class="section-subtitle">Remove background & add any scene - 100% automatic</p>
+
+            <div class="tool-container">
+                <!-- Upload Area -->
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="imageInput" accept="image/jpeg,image/png,image/webp" hidden>
+                    <div class="upload-content">
+                        <div class="upload-icon">📸</div>
+                        <h3>Click to upload photo</h3>
+                        <p>JPG, PNG, WEBP (Max 10MB)</p>
+                        <button class="btn-secondary" onclick="document.getElementById('imageInput').click()">
+                            Choose File
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="preview-section" id="previewSection" style="display: none;">
+                    <div class="preview-container">
+                        <!-- Original Image -->
+                        <div class="preview-card">
+                            <div class="preview-label">Original</div>
+                            <img id="originalPreview" class="preview-img" alt="Original">
+                        </div>
+
+                        <!-- Background Options -->
+                        <div class="background-options">
+                            <h4>Choose Background</h4>
+                            <div class="bg-grid" id="bgGrid">
+                                <!-- Dynamic backgrounds will be added here -->
+                            </div>
+                            <div class="custom-bg">
+                                <input type="text" id="customPrompt" placeholder="Or describe background (e.g., 'beach sunset')">
+                                <button class="btn-primary" onclick="generateWithPrompt()">Generate</button>
+                            </div>
+                        </div>
+
+                        <!-- Result -->
+                        <div class="preview-card">
+                            <div class="preview-label">Result</div>
+                            <canvas id="resultCanvas" class="preview-img"></canvas>
+                            <div class="action-buttons">
+                                <button class="btn-secondary" onclick="downloadResult()">⬇️ Download</button>
+                                <button class="btn-outline" onclick="resetTool()">🔄 New Image</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose Our AI Tool?</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>1 Second Processing</h3>
+                    <p>AI removes background instantly</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>50+ Backgrounds</h3>
+                    <p>Studio, nature, fantasy & more</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>Privacy First</h3>
+                    <p>Your images auto-delete after 24h</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>Mobile Friendly</h3>
+                    <p>Works on any device</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 AI Background Studio. Made with ❤️ for creators</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>

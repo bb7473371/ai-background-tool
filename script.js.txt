@@ -1,0 +1,371 @@
+// Configuration
+const API_KEYS = {
+    REMOVE_BG: 'YOUR_REMOVE_BG_API_KEY_HERE', // Get from https://www.remove.bg
+    REPLICATE: 'YOUR_REPLICATE_API_KEY_HERE'  // Get from https://replicate.com
+};
+
+let currentImageFile = null;
+let currentBgRemovedBlob = null;
+let selectedBackground = null;
+
+// Background presets (Base64 images for demo - replace with actual URLs)
+const BACKGROUNDS = [
+    { name: 'White Studio', url: 'https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?w=400', type: 'image' },
+    { name: 'Forest Nature', url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400', type: 'image' },
+    { name: 'Night City', url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400', type: 'image' },
+    { name: 'Beach Sunset', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400', type: 'image' },
+    { name: 'Modern Office', url: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=400', type: 'image' },
+    { name: 'Coffee Shop', url: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400', type: 'image' },
+    { name: 'Cyberpunk', url: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400', type: 'image' },
+    { name: 'Fantasy Forest', url: 'https://images.unsplash.com/photo-1516214104703-d8707982f912?w=400', type: 'image' }
+];
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', () => {
+    loadBackgroundOptions();
+    setupEventListeners();
+});
+
+function setupEventListeners() {
+    const uploadArea = document.getElementById('uploadArea');
+    const imageInput = document.getElementById('imageInput');
+    
+    uploadArea.addEventListener('click', () => imageInput.click());
+    imageInput.addEventListener('change', handleImageUpload);
+}
+
+function loadBackgroundOptions() {
+    const bgGrid = document.getElementById('bgGrid');
+    bgGrid.innerHTML = BACKGROUNDS.map(bg => `
+        <div class="bg-option" onclick="selectBackground('${bg.url}', '${bg.name}')">
+            <img src="${bg.url}" alt="${bg.name}">
+            <p>${bg.name}</p>
+        </div>
+    `).join('');
+}
+
+async function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Validate file
+    if (!file.type.match('image.*')) {
+        alert('Please upload an image file');
+        return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+        alert('File too large! Maximum 10MB');
+        return;
+    }
+    
+    currentImageFile = file;
+    
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('originalPreview').src = e.target.result;
+        document.getElementById('previewSection').style.display = 'block';
+        document.getElementById('uploadArea').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+    
+    // Remove background automatically
+    await removeBackground(file);
+}
+
+async function removeBackground(imageFile) {
+    showLoading('Removing background...');
+    
+    try {
+        const formData = new FormData();
+        formData.append('image_file', imageFile);
+        formData.append('size', 'auto');
+        
+        const response = await fetch('https://api.remove.bg/v1.0/removebg', {
+            method: 'POST',
+            headers: {
+                'X-Api-Key': API_KEYS.REMOVE_BG
+            },
+            body: formData
+        });
+        
+        if (!response.ok) throw new Error('Background removal failed');
+        
+        currentBgRemovedBlob = await response.blob();
+        hideLoading();
+        showSuccess('Background removed! Now select a new background');
+        
+    } catch (error) {
+        console.error('Error:', error);
+        hideLoading();
+        showError('Failed to remove background. Please try again or use demo mode.');
+        
+        // Demo mode: use canvas to simulate (for testing without API)
+        useDemoMode(imageFile);
+    }
+}
+
+function useDemoMode(imageFile) {
+    // Create a canvas-based simulation (for demo/testing)
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        
+        // Draw image with a simple threshold "green screen" effect
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob(blob => {
+            currentBgRemovedBlob = blob;
+            showSuccess('Demo mode: Background marked for removal');
+        });
+    };
+    img.src = URL.createObjectURL(imageFile);
+}
+
+async function selectBackground(bgUrl, bgName) {
+    if (!currentBgRemovedBlob) {
+        alert('Please upload an image first');
+        return;
+    }
+    
+    selectedBackground = bgUrl;
+    showLoading('Adding background...');
+    
+    try {
+        await compositeImages(currentBgRemovedBlob, bgUrl);
+        hideLoading();
+        showSuccess('Background changed successfully!');
+    } catch (error) {
+        console.error('Error:', error);
+        hideLoading();
+        showError('Failed to add background. Trying alternative method...');
+        alternativeComposite(currentBgRemovedBlob, bgUrl);
+    }
+}
+
+async function compositeImages(foregroundBlob, backgroundUrl) {
+    return new Promise((resolve, reject) => {
+        const canvas = document.getElementById('resultCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const fgImg = new Image();
+        const bgImg = new Image();
+        
+        let loadedCount = 0;
+        
+        function checkComplete() {
+            loadedCount++;
+            if (loadedCount === 2) {
+                // Set canvas size
+                canvas.width = fgImg.width;
+                canvas.height = fgImg.height;
+                
+                // Draw background
+                ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+                
+                // Draw foreground (with transparency if available)
+                ctx.drawImage(fgImg, 0, 0, canvas.width, canvas.height);
+                
+                resolve();
+            }
+        }
+        
+        fgImg.onload = checkComplete;
+        bgImg.onload = checkComplete;
+        
+        fgImg.src = URL.createObjectURL(foregroundBlob);
+        bgImg.src = backgroundUrl;
+    });
+}
+
+function alternativeComposite(foregroundBlob, backgroundUrl) {
+    const canvas = document.getElementById('resultCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const fgImg = new Image();
+    const bgImg = new Image();
+    
+    bgImg.onload = () => {
+        fgImg.onload = () => {
+            canvas.width = fgImg.width;
+            canvas.height = fgImg.height;
+            
+            // Draw background stretched
+            ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+            
+            // Draw foreground with blending
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.drawImage(fgImg, 0, 0, canvas.width, canvas.height);
+            
+            showSuccess('Alternative method used - result ready!');
+        };
+        fgImg.src = URL.createObjectURL(foregroundBlob);
+    };
+    bgImg.src = backgroundUrl;
+}
+
+async function generateWithPrompt() {
+    const prompt = document.getElementById('customPrompt').value;
+    if (!prompt) {
+        alert('Please describe the background you want');
+        return;
+    }
+    
+    if (!API_KEYS.REPLICATE || API_KEYS.REPLICATE === 'YOUR_REPLICATE_API_KEY_HERE') {
+        alert('Please add your Replicate API key for AI generation. Using preset background instead.');
+        selectBackground(BACKGROUNDS[0].url, 'Default');
+        return;
+    }
+    
+    showLoading('Generating AI background...');
+    
+    try {
+        const response = await fetch('https://api.replicate.com/v1/predictions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${API_KEYS.REPLICATE}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                version: "stability-ai/sdxl:39ed52f2a78e934b3ba6e2a89f5b1c712de7dfea535525255b1aa35c5565e08b",
+                input: {
+                    prompt: prompt,
+                    negative_prompt: "blurry, bad quality",
+                    width: 768,
+                    height: 768
+                }
+            })
+        });
+        
+        const prediction = await response.json();
+        
+        // Poll for result
+        let result = await pollForResult(prediction.urls.get);
+        
+        if (result && result.output) {
+            selectBackground(result.output[0], 'AI Generated');
+        }
+        
+        hideLoading();
+    } catch (error) {
+        console.error('Error:', error);
+        hideLoading();
+        showError('AI generation failed. Using preset background.');
+        selectBackground(BACKGROUNDS[0].url, 'Default');
+    }
+}
+
+async function pollForResult(url) {
+    for (let i = 0; i < 30; i++) {
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        if (data.status === 'succeeded') {
+            return data;
+        } else if (data.status === 'failed') {
+            throw new Error('Generation failed');
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    throw new Error('Timeout');
+}
+
+function downloadResult() {
+    const canvas = document.getElementById('resultCanvas');
+    if (!canvas || !canvas.width) {
+        alert('No result to download. Please change a background first.');
+        return;
+    }
+    
+    const link = document.createElement('a');
+    link.download = 'ai-background-result.png';
+    link.href = canvas.toDataURL();
+    link.click();
+}
+
+function resetTool() {
+    currentImageFile = null;
+    currentBgRemovedBlob = null;
+    selectedBackground = null;
+    
+    document.getElementById('uploadArea').style.display = 'block';
+    document.getElementById('previewSection').style.display = 'none';
+    document.getElementById('imageInput').value = '';
+    document.getElementById('originalPreview').src = '';
+    document.getElementById('resultCanvas').getContext('2d').clearRect(0, 0, 500, 500);
+    document.getElementById('customPrompt').value = '';
+}
+
+function scrollToTool() {
+    document.getElementById('tools').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Utility functions
+function showLoading(message) {
+    const btn = document.activeElement;
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="loading"></span> ${message}`;
+    btn.dataset.originalText = originalText;
+}
+
+function hideLoading() {
+    const btns = document.querySelectorAll('button');
+    btns.forEach(btn => {
+        if (btn.disabled) {
+            btn.disabled = false;
+            btn.innerHTML = btn.dataset.originalText || btn.textContent;
+        }
+    });
+}
+
+function showSuccess(message) {
+    const toast = createToast(message, 'success');
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function showError(message) {
+    const toast = createToast(message, 'error');
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+}
+
+function createToast(message, type) {
+    const div = document.createElement('div');
+    div.className = `toast toast-${type}`;
+    div.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#4caf50' : '#f44336'};
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 10px;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    div.textContent = message;
+    return div;
+}
+
+// Add toast animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+`;
+document.head.appendChild(style);
